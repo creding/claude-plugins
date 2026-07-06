@@ -1,12 +1,12 @@
 ---
 name: generate-image
-description: Generate an image from a text description using Google's Gemini image models ("Nano Banana"). Use whenever the user wants to create, generate, make, or produce an image, picture, photo, illustration, graphic, or visual from a prompt — e.g. "generate an image of…", "make me a picture of…", "create a hero image…", or any mention of nano banana / nanobanana image generation.
+description: Generate an image from text, OR edit/render from source photo(s), using Google's Gemini image models ("Nano Banana"). Use whenever the user wants to create, generate, make, or produce an image, picture, photo, illustration, graphic, rendering, or visual — including editing a provided photo (e.g. "add a deck to this house", "render a patio here", "show this with a new roof"), producing architectural renderings/perspectives, or any mention of nano banana / nanobanana.
 ---
 
-# Generate an image with Nano Banana
+# Generate & edit images with Nano Banana
 
-Generate images by running the bundled zero-dependency Node script, then show the
-result to the user.
+Generate images from text, or edit/render from one or more source photos, by running the
+bundled zero-dependency Node script, then show the result(s) to the user.
 
 ## How to run it
 
@@ -24,8 +24,52 @@ The script prints progress to stderr and, on success, prints the absolute path o
 generated file to stdout (one per line, as the final output). After it finishes, **Read
 each printed path and display the image to the user.**
 
+## Editing / rendering from source images (image-to-image)
+
+Pass one or more source photos with `--image <path>` (repeatable, up to 14). The model
+edits/renders based on them — e.g. adding a deck or patio to a photo of a house. **Any
+writing, arrows, or markings in the source image are read and followed by the model**, so a
+photo annotated with "deck goes here" works as-is.
+
+```bash
+node ".../generate-image.mjs" "Add a large cedar deck with railings and steps where marked. \
+Keep the house and landscaping unchanged; match lighting and perspective." \
+  --image /path/to/house.jpg --image /path/to/markup.jpg \
+  --model gemini-3-pro-image --size 2K
+```
+
+**Getting the user's photo to a file path:** the script needs the image as a file on disk.
+- If the user gives a file path (or drags a file into the input, which inserts its path),
+  pass it straight to `--image`.
+- If the user **pastes** an image, first check whether the client saved it to a path you can
+  read (look for a mentioned path, or a newly-created image under the system temp dir). If you
+  can find/read it, copy it to a stable temp file and use that path. If you genuinely cannot
+  obtain the bytes on disk, tell the user to drag the image file into the input instead — do
+  not fabricate or approximate the image.
+
+For rendering work, prefer `--model gemini-3-pro-image` and `--size 2K` for quality.
+
+## Architect-style perspectives
+
+`--perspective <list>` renders the SAME scene multiple ways in one run. Presets:
+`photoreal` (realistic after-photo), `topdown` (aerial plan view), `drawing` (architect's
+line-drawing/elevation), `angled` (three-quarter eye-level view). Use `all` for the full set.
+
+```bash
+node ".../generate-image.mjs" "render this backyard with a paver patio and pergola" \
+  --image /path/to/backyard.jpg --perspective photoreal,topdown,drawing,angled \
+  --model gemini-3-pro-image
+```
+
+When the user asks for "different perspectives", "an architect's drawing", "top-down", or "a
+few views", use this. Each perspective is saved as its own file (labeled in the filename).
+
 ## Flags (translate the user's request into these)
 
+- `--image <path>` — source image to edit/reference (repeatable, up to 14). Presence of any
+  `--image` switches to image-to-image rendering.
+- `--perspective <list>` — `photoreal,topdown,drawing,angled` (or `all`). Renders the same
+  scene multiple ways in one run.
 - `--model <id>` — `gemini-3.1-flash-image` (default, generalist), `gemini-3-pro-image`
   (premium/complex), `gemini-3.1-flash-lite-image` (fast/cheap, 1K max), or
   `gemini-2.5-flash-image` (legacy). Use pro when the user wants the highest quality or a

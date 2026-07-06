@@ -36,6 +36,21 @@ Once installed, just ask Claude in any session:
 Claude runs the bundled script and shows you the result. Generated files are saved to
 `./nanobanana-images/` in the current repo by default.
 
+### Rendering from a source photo (image-to-image)
+
+Give Claude a photo of a home/yard and ask for a change — it edits the actual photo:
+
+> here's a photo of my house (house.jpg) — render it with a large cedar deck across the front
+
+You can include a second image that's marked up (arrows/writing showing where the deck goes);
+the model reads and follows those markings. Ask for **an architect's set** to get multiple
+views at once:
+
+> render this backyard with a paver patio and pergola — give me photoreal, top-down, a line
+> drawing, and an angled 3D view
+
+Each perspective is saved as its own labeled file.
+
 ### Running the script directly
 
 ```bash
@@ -47,6 +62,8 @@ node plugins/nanobanana/skills/generate-image/scripts/generate-image.mjs \
 
 | Flag | Values | Default |
 | --- | --- | --- |
+| `--image` | path to a source image (repeatable, up to 14) | none (text-to-image) |
+| `--perspective` | `photoreal`, `topdown`, `drawing`, `angled`, or `all` (comma-separated) | none |
 | `--model` | `gemini-3.1-flash-image`, `gemini-3-pro-image`, `gemini-3.1-flash-lite-image`, `gemini-2.5-flash-image` | `gemini-3.1-flash-image` |
 | `--aspect` | `1:1 3:2 2:3 3:4 4:3 4:5 5:4 9:16 16:9 21:9` | model default |
 | `--size` | `512px 1K 2K 4K` | model default |

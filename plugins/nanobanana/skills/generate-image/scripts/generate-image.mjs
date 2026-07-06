@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-// nanobanana — generate images with Google's Gemini image models ("Nano Banana").
+// nanobanana — generate & edit images with Google's Gemini image models ("Nano Banana").
 // Zero dependencies: uses Node's built-in fetch (Node 18+). No npm install required,
 // so it runs from any repo.
 //
-// Usage:
-//   node generate-image.mjs "a photorealistic metal roof at golden hour" \
-//     [--model gemini-3.1-flash-image] [--aspect 16:9] [--size 2K] \
-//     [--n 1] [--out ./nanobanana-images] [--name my-image]
+// Text-to-image:
+//   node generate-image.mjs "a photorealistic metal roof at golden hour" --aspect 16:9 --size 2K
+//
+// Image-to-image / rendering from source photo(s):
+//   node generate-image.mjs "add a large composite deck where the marked lines show" \
+//     --image ./house.jpg --image ./markup.jpg \
+//     --model gemini-3-pro-image --perspective photoreal,topdown,drawing,angled
 //
 // API key resolution (first hit wins):
 //   1. $GEMINI_API_KEY
@@ -29,6 +32,35 @@ const VALID_ASPECTS = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", 
 const VALID_SIZES = ["512px", "1K", "2K", "4K"];
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
+// Architect-style perspective presets. Each appends a viewpoint/style instruction to the
+// user's prompt so a single request yields a coherent set of renderings of the same scene.
+const PERSPECTIVES = {
+  photoreal:
+    "Produce a photorealistic architectural visualization. Keep the existing house, " +
+    "surroundings, and camera viewpoint from the source photo, and realistically integrate " +
+    "the requested changes with matching lighting, shadows, materials, scale, and perspective.",
+  topdown:
+    "Produce a top-down bird's-eye aerial plan view, as if seen from directly above, clearly " +
+    "showing the layout, footprint, and proportions of the new structure in relation to the " +
+    "house and yard.",
+  drawing:
+    "Produce a clean architectural presentation drawing: precise CAD/hand-drawn-style line work " +
+    "with light shading and simple annotations on a white background, like an architect's " +
+    "concept sketch.",
+  angled:
+    "Produce a three-quarter, eye-level perspective rendering of the finished result, viewed " +
+    "from a front corner to convey depth and how the new structure connects to the house.",
+};
+const MIME_BY_EXT = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".heic": "image/heic",
+  ".heif": "image/heif",
+};
+
 function fail(msg) {
   console.error(`nanobanana: ${msg}`);
   process.exit(1);
@@ -43,6 +75,8 @@ function parseArgs(argv) {
     n: 1,
     out: "./nanobanana-images",
     name: undefined,
+    images: [],
+    perspectives: [],
   };
   const promptParts = [];
   for (let i = 0; i < argv.length; i++) {
@@ -56,7 +90,11 @@ function parseArgs(argv) {
     else if (a === "--n") opts.n = parseInt(argv[++i], 10);
     else if (a === "--out") opts.out = argv[++i];
     else if (a === "--name") opts.name = argv[++i];
-    else if (a.startsWith("--")) fail(`unknown flag: ${a}`);
+    else if (a === "--image") opts.images.push(argv[++i]);
+    else if (a === "--perspective" || a === "--perspectives") {
+      const val = argv[++i] || "";
+      opts.perspectives.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
+    } else if (a.startsWith("--")) fail(`unknown flag: ${a}`);
     else promptParts.push(a);
   }
   opts.prompt = promptParts.join(" ").trim();
@@ -64,23 +102,27 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`nanobanana — generate images with Gemini image models
+  console.log(`nanobanana — generate & edit images with Gemini image models
 
 Usage:
   node generate-image.mjs "<prompt>" [options]
 
 Options:
-  --model <id>    ${MODELS.join(", ")}
-                  (default: ${DEFAULT_MODEL})
-  --aspect <r>    ${VALID_ASPECTS.join(", ")}
-  --size <s>      ${VALID_SIZES.join(", ")}
-  --n <count>     number of variations (default: 1)
-  --out <dir>     output directory (default: ./nanobanana-images)
-  --name <base>   base filename (default: derived from prompt)
-  -h, --help      show this help
+  --image <path>      source image to edit/reference (repeatable, up to 14).
+                      Enables image-to-image rendering. Any writing/markings in the
+                      image are read and followed by the model.
+  --perspective <list>  comma-separated set to render the same scene multiple ways:
+                      ${Object.keys(PERSPECTIVES).join(", ")}, or "all"
+  --model <id>        ${MODELS.join(", ")}
+                      (default: ${DEFAULT_MODEL}; use gemini-3-pro-image for renderings)
+  --aspect <r>        ${VALID_ASPECTS.join(", ")}
+  --size <s>          ${VALID_SIZES.join(", ")}
+  --n <count>         variations per perspective (default: 1)
+  --out <dir>         output directory (default: ./nanobanana-images)
+  --name <base>       base filename (default: derived from prompt)
+  -h, --help          show this help
 
-API key: $GEMINI_API_KEY, then $GOOGLE_GENERATIVE_AI_API_KEY,
-         then ~/.config/nanobanana/key`);
+API key: $GEMINI_API_KEY, then $GOOGLE_GENERATIVE_AI_API_KEY, then ~/.config/nanobanana/key`);
 }
 
 async function resolveApiKey() {
@@ -114,6 +156,21 @@ function extForMime(mime) {
   return "png";
 }
 
+// Read source images from disk into Gemini inlineData parts.
+async function loadImageParts(paths) {
+  const parts = [];
+  for (const p of paths) {
+    const abs = path.resolve(p);
+    if (!existsSync(abs)) fail(`source image not found: ${p}`);
+    const ext = path.extname(abs).toLowerCase();
+    const mime = MIME_BY_EXT[ext];
+    if (!mime) fail(`unsupported source image type '${ext}' (${p}). Use jpg, png, webp, gif, heic.`);
+    const buf = await readFile(abs);
+    parts.push({ inlineData: { mimeType: mime, data: buf.toString("base64") } });
+  }
+  return parts;
+}
+
 // Pull the first inline image out of a generateContent response.
 function extractImage(json) {
   const parts = json?.candidates?.[0]?.content?.parts || [];
@@ -135,9 +192,11 @@ function extractText(json) {
   return block ? `model returned no image (${block})` : "";
 }
 
-async function generateOnce(apiKey, opts, useImageConfig) {
+async function generateOnce(apiKey, opts, promptText, imageParts, useImageConfig) {
+  // Source images come first, then the text instruction — the order Gemini expects.
+  const parts = [...imageParts, { text: promptText }];
   const body = {
-    contents: [{ parts: [{ text: opts.prompt }] }],
+    contents: [{ parts }],
     generationConfig: { responseModalities: ["IMAGE"] },
   };
   if (useImageConfig && (opts.aspect || opts.size)) {
@@ -150,7 +209,7 @@ async function generateOnce(apiKey, opts, useImageConfig) {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120000),
+    signal: AbortSignal.timeout(180000),
   });
   const text = await res.text();
   let json;
@@ -163,10 +222,34 @@ async function generateOnce(apiKey, opts, useImageConfig) {
     const apiMsg = json?.error?.message || text.slice(0, 300);
     const err = new Error(apiMsg);
     err.status = res.status;
-    err.body = json;
     throw err;
   }
   return json;
+}
+
+// One generation (with the imageConfig-rejection fallback), returns the saved file path.
+async function renderOne(apiKey, opts, promptText, imageParts, base, label, stamp, idx) {
+  let json;
+  try {
+    json = await generateOnce(apiKey, opts, promptText, imageParts, true);
+  } catch (e) {
+    if (e.status === 400 && (opts.aspect || opts.size)) {
+      const hint = [opts.aspect && `aspect ratio ${opts.aspect}`, opts.size && `${opts.size} resolution`]
+        .filter(Boolean)
+        .join(", ");
+      console.error(`nanobanana: imageConfig rejected (${e.message}); retrying with it in the prompt`);
+      json = await generateOnce(apiKey, opts, `${promptText} (${hint})`, imageParts, false);
+    } else {
+      fail(`API error (${e.status || "network"}): ${e.message}`);
+    }
+  }
+  const img = extractImage(json);
+  if (!img) fail(extractText(json) || "no image returned by the model");
+  const parts = [base, label, idx].filter((s) => s !== "" && s != null);
+  const file = path.resolve(opts.out, `${parts.join("-")}-${stamp}.${extForMime(img.mime)}`);
+  await writeFile(file, Buffer.from(img.data, "base64"));
+  console.error(`✓ ${path.basename(file)} (${img.mime})`);
+  return file;
 }
 
 async function main() {
@@ -183,39 +266,34 @@ async function main() {
     fail(`invalid --size '${opts.size}'. Valid: ${VALID_SIZES.join(", ")}`);
   if (!Number.isInteger(opts.n) || opts.n < 1) fail("--n must be a positive integer");
 
+  // Resolve the perspective set.
+  let perspectives = opts.perspectives;
+  if (perspectives.includes("all")) perspectives = Object.keys(PERSPECTIVES);
+  for (const p of perspectives)
+    if (!PERSPECTIVES[p])
+      fail(`unknown --perspective '${p}'. Valid: ${Object.keys(PERSPECTIVES).join(", ")}, all`);
+
   const apiKey = await resolveApiKey();
+  const imageParts = await loadImageParts(opts.images);
+  if (opts.images.length) console.error(`nanobanana: using ${opts.images.length} source image(s)`);
   await mkdir(opts.out, { recursive: true });
   const base = opts.name || slugify(opts.prompt);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
-  const written = [];
-  for (let i = 0; i < opts.n; i++) {
-    let json;
-    try {
-      json = await generateOnce(apiKey, opts, true);
-    } catch (e) {
-      // Graceful fallback: some models/versions reject imageConfig. Retry once
-      // with the aspect ratio folded into the prompt text instead.
-      if (e.status === 400 && (opts.aspect || opts.size)) {
-        console.error(
-          `nanobanana: imageConfig rejected (${e.message}); retrying with aspect/size in the prompt`,
-        );
-        const hint = [opts.aspect && `aspect ratio ${opts.aspect}`, opts.size && `${opts.size} resolution`]
-          .filter(Boolean)
-          .join(", ");
-        const retryOpts = { ...opts, prompt: `${opts.prompt} (${hint})` };
-        json = await generateOnce(apiKey, retryOpts, false);
-      } else {
-        fail(`API error (${e.status || "network"}): ${e.message}`);
-      }
+  // Build the job list: one entry per (perspective × variation).
+  const jobs = [];
+  const labels = perspectives.length ? perspectives : [""];
+  for (const label of labels) {
+    const promptText = label ? `${opts.prompt}\n\n${PERSPECTIVES[label]}` : opts.prompt;
+    for (let i = 0; i < opts.n; i++) {
+      const idx = opts.n > 1 ? String(i + 1) : "";
+      jobs.push({ promptText, label, idx });
     }
-    const img = extractImage(json);
-    if (!img) fail(extractText(json) || "no image returned by the model");
-    const suffix = opts.n > 1 ? `-${i + 1}` : "";
-    const file = path.resolve(opts.out, `${base}-${stamp}${suffix}.${extForMime(img.mime)}`);
-    await writeFile(file, Buffer.from(img.data, "base64"));
-    written.push(file);
-    console.error(`✓ ${path.basename(file)} (${img.mime})`);
+  }
+
+  const written = [];
+  for (const job of jobs) {
+    written.push(await renderOne(apiKey, opts, job.promptText, imageParts, base, job.label, stamp, job.idx));
   }
 
   // Machine-readable tail: one absolute path per line for the caller to read.
