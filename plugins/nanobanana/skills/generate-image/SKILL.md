@@ -38,14 +38,21 @@ Keep the house and landscaping unchanged; match lighting and perspective." \
   --model gemini-3-pro-image --size 2K
 ```
 
-**Getting the user's photo to a file path:** the script needs the image as a file on disk.
-- If the user gives a file path (or drags a file into the input, which inserts its path),
-  pass it straight to `--image`.
-- If the user **pastes** an image, first check whether the client saved it to a path you can
-  read (look for a mentioned path, or a newly-created image under the system temp dir). If you
-  can find/read it, copy it to a stable temp file and use that path. If you genuinely cannot
-  obtain the bytes on disk, tell the user to drag the image file into the input instead — do
-  not fabricate or approximate the image.
+**Getting the user's photo to the script.** The script needs the image as real bytes (a file
+on disk or the system clipboard) — a picture that only appears in the chat as visual context
+is NOT usable, because those exact pixels can't be re-serialized to a file. Use, in order:
+- **File path / drag-drop:** if the user gives a path or drags a file into the input (which
+  inserts its path), pass it to `--image`.
+- **Clipboard (macOS):** if the user *copied* an image (Cmd+C from Photos/Preview/Finder/a
+  browser), pass `--clipboard` and the script pulls it off the clipboard. Best for a single
+  source image.
+- **If the user only *pasted* an image into chat:** you can see it but have no bytes for it.
+  Ask them to either **copy** it (then use `--clipboard`) or **drag the file** into the input.
+  Never fabricate or eyeball-approximate the source image.
+
+For multiple source images (e.g. a clean photo + a marked-up copy), file paths are easiest —
+`--clipboard` only grabs the one image currently copied (it's added before any `--image`
+files).
 
 For rendering work, prefer `--model gemini-3-pro-image` and `--size 2K` for quality.
 
@@ -68,6 +75,8 @@ few views", use this. Each perspective is saved as its own file (labeled in the 
 
 - `--image <path>` — source image to edit/reference (repeatable, up to 14). Presence of any
   `--image` switches to image-to-image rendering.
+- `--clipboard` — use the image on the macOS clipboard as a source (added before `--image`
+  files). Use when the user *copied* an image rather than giving a path.
 - `--perspective <list>` — `photoreal,topdown,drawing,angled` (or `all`). Renders the same
   scene multiple ways in one run.
 - `--model <id>` — `gemini-3.1-flash-image` (default, generalist), `gemini-3-pro-image`

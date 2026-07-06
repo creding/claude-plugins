@@ -18,7 +18,8 @@
 
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { execFileSync } from "node:child_process";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
 const MODELS = [
@@ -76,6 +77,7 @@ function parseArgs(argv) {
     out: "./nanobanana-images",
     name: undefined,
     images: [],
+    clipboard: false,
     perspectives: [],
   };
   const promptParts = [];
@@ -91,6 +93,7 @@ function parseArgs(argv) {
     else if (a === "--out") opts.out = argv[++i];
     else if (a === "--name") opts.name = argv[++i];
     else if (a === "--image") opts.images.push(argv[++i]);
+    else if (a === "--clipboard" || a === "--paste") opts.clipboard = true;
     else if (a === "--perspective" || a === "--perspectives") {
       const val = argv[++i] || "";
       opts.perspectives.push(...val.split(",").map((s) => s.trim()).filter(Boolean));
@@ -111,6 +114,8 @@ Options:
   --image <path>      source image to edit/reference (repeatable, up to 14).
                       Enables image-to-image rendering. Any writing/markings in the
                       image are read and followed by the model.
+  --clipboard         use the image currently on the macOS clipboard as a source image
+                      (added before any --image files). Copy an image first.
   --perspective <list>  comma-separated set to render the same scene multiple ways:
                       ${Object.keys(PERSPECTIVES).join(", ")}, or "all"
   --model <id>        ${MODELS.join(", ")}
@@ -154,6 +159,39 @@ function extForMime(mime) {
   if (mime.includes("jpeg") || mime.includes("jpg")) return "jpg";
   if (mime.includes("webp")) return "webp";
   return "png";
+}
+
+// Extract the image currently on the macOS clipboard to a temp PNG file and return its
+// path. Zero dependencies — uses AppleScript via osascript. Fails clearly if there is no
+// image on the clipboard or the platform isn't macOS.
+function extractClipboardImage() {
+  if (process.platform !== "darwin")
+    fail("--clipboard is macOS-only. On other systems, save the image and use --image <path>.");
+  const out = path.join(tmpdir(), `nanobanana-clip-${process.pid}-${Date.now()}.png`);
+  const script = `
+    try
+      set imgData to the clipboard as «class PNGf»
+    on error
+      return "NO_IMAGE"
+    end try
+    set outFile to (POSIX file ${JSON.stringify(out)})
+    set fh to open for access outFile with write permission
+    set eof fh to 0
+    write imgData to fh
+    close access fh
+    return "OK"`;
+  let res;
+  try {
+    res = execFileSync("osascript", ["-e", script], { encoding: "utf8" }).trim();
+  } catch (e) {
+    fail(`could not read clipboard: ${e.message.split("\n")[0]}`);
+  }
+  if (res !== "OK" || !existsSync(out))
+    fail(
+      "no image found on the clipboard. Copy an image first (Cmd+C in Photos/Preview/Finder/" +
+        "a browser), then rerun — or pass a file with --image <path>.",
+    );
+  return out;
 }
 
 // Read source images from disk into Gemini inlineData parts.
@@ -274,6 +312,12 @@ async function main() {
       fail(`unknown --perspective '${p}'. Valid: ${Object.keys(PERSPECTIVES).join(", ")}, all`);
 
   const apiKey = await resolveApiKey();
+  // A clipboard image (if requested) becomes the first source image.
+  if (opts.clipboard) {
+    const clip = extractClipboardImage();
+    console.error(`nanobanana: pulled image off the clipboard`);
+    opts.images.unshift(clip);
+  }
   const imageParts = await loadImageParts(opts.images);
   if (opts.images.length) console.error(`nanobanana: using ${opts.images.length} source image(s)`);
   await mkdir(opts.out, { recursive: true });
