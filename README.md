@@ -12,9 +12,21 @@ built-in `fetch` (Node 18+).
 
 ## Install
 
+In a Claude Code CLI that supports `/plugin`:
+
 ```
-/plugin marketplace add ~/github/claude-plugins
+/plugin marketplace add creding/claude-plugins
 /plugin install nanobanana@creding-plugins
+```
+
+(Or use a local checkout as the source: `/plugin marketplace add ~/github/claude-plugins`.)
+
+If your environment doesn't expose `/plugin`, install it as a personal skill instead —
+symlink the skill into your skills folder so it loads in every session:
+
+```
+ln -sfn ~/github/claude-plugins/plugins/nanobanana/skills/generate-image \
+  ~/.claude/skills/generate-image
 ```
 
 Then set your Gemini API key once so it's available everywhere:
