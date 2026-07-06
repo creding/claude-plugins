@@ -13,12 +13,13 @@ bundled zero-dependency Node script, then show the result(s) to the user.
 Run the script with the user's prompt as the first argument:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate-image.mjs" "<prompt>" [flags]
+node "<script>" "<prompt>" [flags]
 ```
 
-`${CLAUDE_PLUGIN_ROOT}` is set to this plugin's install directory when the skill runs.
-If for some reason it is empty, use the absolute path to this skill's
-`scripts/generate-image.mjs` instead.
+where `<script>` is the bundled `scripts/generate-image.mjs` inside THIS skill's directory.
+Resolve it as follows, using whichever points at a real file:
+- Installed as a plugin: `${CLAUDE_PLUGIN_ROOT}/skills/generate-image/scripts/generate-image.mjs`
+- Installed as a personal skill: `~/.claude/skills/generate-image/scripts/generate-image.mjs`
 
 The script prints progress to stderr and, on success, prints the absolute path of each
 generated file to stdout (one per line, as the final output). After it finishes, **Read
