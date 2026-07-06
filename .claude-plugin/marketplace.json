@@ -1,13 +1,18 @@
 {
   "name": "creding-plugins",
+  "description": "Personal Claude Code plugin marketplace.",
   "owner": {
     "name": "Christopher Reding"
   },
   "plugins": [
     {
       "name": "nanobanana",
+      "description": "Generate images from a text prompt with Google's Gemini image models (\"Nano Banana\"). Callable from any repo.",
+      "version": "0.1.0",
       "source": "./plugins/nanobanana",
-      "description": "Generate images from a text prompt with Google's Gemini image models (\"Nano Banana\"). Callable from any repo."
+      "author": {
+        "name": "Christopher Reding"
+      }
     }
   ]
 }
