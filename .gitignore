@@ -1,0 +1,6 @@
+# Generated images (default nanobanana output dir)
+nanobanana-images/
+
+# OS / editor cruft
+.DS_Store
+node_modules/

@@ -1,0 +1,9 @@
+{
+  "name": "nanobanana",
+  "description": "Generate images from a text prompt using Google's Gemini image models (\"Nano Banana\"). Zero-dependency, works in any repository.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Christopher Reding"
+  },
+  "keywords": ["image", "image-generation", "gemini", "nano-banana", "ai"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "creding-plugins",
+  "owner": {
+    "name": "Christopher Reding"
+  },
+  "plugins": [
+    {
+      "name": "nanobanana",
+      "source": "./plugins/nanobanana",
+      "description": "Generate images from a text prompt with Google's Gemini image models (\"Nano Banana\"). Callable from any repo."
+    }
+  ]
+}
