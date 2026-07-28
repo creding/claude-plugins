@@ -111392,7 +111392,9 @@ var PAGINATION_KEYS = ["totalCount", "totalRecordCount", "recordStartIndex", "pa
 function postprocess(entry, result, opts) {
   let out = stripEmpty(result);
   const fields = opts.fields ?? (!opts.full ? entry.project : void 0);
-  if (fields && out && typeof out === "object" && !Array.isArray(out)) {
+  if (fields && Array.isArray(out)) {
+    out = out.map((item) => pick2(item, fields));
+  } else if (fields && out && typeof out === "object" && !Array.isArray(out)) {
     const payload = out;
     if (Array.isArray(payload.items)) {
       const meta3 = { count: payload.items.length };
