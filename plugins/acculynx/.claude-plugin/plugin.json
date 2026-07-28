@@ -1,0 +1,6 @@
+{
+  "name": "acculynx",
+  "description": "Full-featured AccuLynx connector: a bundled LLM-first CLI covering the complete AccuLynx v2 API (jobs, leads, contacts, financials, payments, documents, reports) plus skills for guided workflows and PDF document generation.",
+  "version": "0.1.0",
+  "author": { "name": "Christopher Reding" }
+}
