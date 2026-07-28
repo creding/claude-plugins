@@ -1,6 +1,2 @@
-# Generated images (default nanobanana output dir)
-nanobanana-images/
-
-# OS / editor cruft
+plugins/acculynx/cli/config.json
 .DS_Store
-node_modules/

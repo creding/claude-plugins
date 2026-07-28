@@ -111215,12 +111215,24 @@ function configPath() {
   const home = process.env.ACCULYNX_CONFIG_HOME || import_node_os.default.homedir();
   return import_node_path2.default.join(home, ".config", "acculynx", "config.json");
 }
-function loadConfig() {
+function bundleAdjacentConfigPath() {
   try {
-    return JSON.parse(import_node_fs.default.readFileSync(configPath(), "utf8"));
+    const script = import_node_fs.default.realpathSync(process.argv[1] ?? "");
+    return import_node_path2.default.join(import_node_path2.default.dirname(script), "config.json");
+  } catch {
+    return null;
+  }
+}
+function readJsonConfig(file2) {
+  if (!file2) return {};
+  try {
+    return JSON.parse(import_node_fs.default.readFileSync(file2, "utf8"));
   } catch {
     return {};
   }
+}
+function loadConfig() {
+  return { ...readJsonConfig(bundleAdjacentConfigPath()), ...readJsonConfig(configPath()) };
 }
 function applyConfig() {
   const cfg = loadConfig();
