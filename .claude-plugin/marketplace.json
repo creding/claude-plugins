@@ -13,15 +13,6 @@
       "author": {
         "name": "Christopher Reding"
       }
-    },
-    {
-      "name": "acculynx",
-      "description": "Full-featured AccuLynx connector: bundled CLI for the complete AccuLynx v2 API plus workflow and PDF-report skills.",
-      "version": "0.2.1",
-      "source": "./plugins/acculynx",
-      "author": {
-        "name": "Christopher Reding"
-      }
     }
   ]
 }

@@ -4,29 +4,6 @@ A personal [Claude Code](https://code.claude.com) plugin marketplace.
 
 ## Plugins
 
-### acculynx
-
-Full-featured [AccuLynx](https://www.acculynx.com/) (roofing CRM) connector. Bundles a
-single-file, LLM-first CLI covering the complete AccuLynx v2 API — 120 commands across
-jobs, leads, contacts, estimates, financials, invoices, payments, appointments, documents,
-media, users, and company settings — plus three skills:
-
-- **use-acculynx** — teaches Claude the discovery-first workflow (`guide`, `search`,
-  `describe`) and the domain rules (contact-first job creation, milestone discovery,
-  pagination limits).
-- **draft-coc** — Certificate of Completion PDFs: generate → review → upload.
-- **generate-roof-report** — branded roof inspection report PDFs, brief or detailed.
-
-Setup: enter your API key (and optional signer email for PDF signatures) in the plugin's
-configuration screen when installing — the key lands in secure storage and a SessionStart
-hook makes it available to the CLI in every session, including Cowork sandboxes.
-Alternatives: export `ACCULYNX_API_KEY` / `ACCULYNX_SIGNER_EMAIL`, or write
-`~/.config/acculynx/config.json` as `{"apiKey": "...", "signerEmail": "..."}`.
-Requires Node 22+.
-
-The CLI is developed in [`acculynx-cli`](https://github.com/creding/acculynx-cli) and the
-built bundle is synced into `plugins/acculynx/cli/` by that repo's `scripts/sync-plugin.sh`.
-
 ### nanobanana
 
 Generate images from a text prompt using Google's Gemini image models ("Nano Banana"),
@@ -39,7 +16,6 @@ In a Claude Code CLI that supports `/plugin`:
 
 ```
 /plugin marketplace add creding/claude-plugins
-/plugin install acculynx@creding-plugins
 /plugin install nanobanana@creding-plugins
 ```
 
