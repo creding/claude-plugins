@@ -1,6 +1,6 @@
 ---
 name: use-acculynx
-description: Work with AccuLynx (roofing CRM) — jobs, leads, contacts, estimates, invoices, payments, financial worksheets, insurance, appointments, document uploads, and PDF report generation — via the bundled acculynx CLI. Use whenever the user asks about AccuLynx data or wants to create/update anything in AccuLynx: look up or create jobs and leads, find contacts, check financials or payments, schedule appointments, upload documents or photos, or draft Certificates of Completion / roof reports.
+description: "Work with AccuLynx (roofing CRM) — jobs, leads, contacts, estimates, invoices, payments, financial worksheets, insurance, appointments, document uploads, and PDF report generation — via the bundled acculynx CLI. Use whenever the user asks about AccuLynx data or wants to create/update anything in AccuLynx: look up or create jobs and leads, find contacts, check financials or payments, schedule appointments, upload documents or photos, or draft Certificates of Completion / roof reports."
 ---
 
 # AccuLynx via the bundled CLI
