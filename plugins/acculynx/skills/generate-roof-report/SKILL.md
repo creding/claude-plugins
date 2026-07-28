@@ -12,7 +12,7 @@ The PDF generation step is **rendering only** (no external side effects), so gen
 
 ## Dependencies
 This skill leverages the following CLI commands (schemas: `acculynx describe <group> <command>`):
-* `acculynx jobs get` / `acculynx jobs list --search` — job details, including addresses and dates.
+* `acculynx jobs get` / `acculynx jobs list --search-term` — job details, including addresses and dates.
 * `acculynx jobs contacts` — the customer / client associated with the job.
 * `acculynx settings company` — company contact details.
 * `acculynx reports roof-report` — renders the report PDF to disk (`-o <path>`; result includes `filePath`).
@@ -22,7 +22,7 @@ This skill leverages the following CLI commands (schemas: `acculynx describe <gr
 ## Workflow
 
 ### Step 1: Gather Job and Contact Information
-* If a customer or realtor name is given, search with `acculynx jobs list --search "<name>"` or `acculynx contacts list --search "<name>"`.
+* If a customer or realtor name is given, search with `acculynx jobs list --search-term "<name>"` or `acculynx contacts list --search-term "<name>"`.
 * Fetch full job details with `acculynx jobs get <jobId>`: note the `id` (jobId), property address, and client details.
 * Fetch `acculynx jobs contacts <jobId>` for the recipient's full name and company.
 

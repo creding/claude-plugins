@@ -30,7 +30,7 @@ Output is JSON (concise projections for lists — add `--full` or `--fields a,b,
 - **Mutations** (`[mutates]` label): confirm amounts, dates, recipients, and message text with the user before running; report the real result including errors.
 - **Never show raw UUIDs** to the user — resolve them (`contacts get`, `users get`, `jobs get`) first.
 - **Milestone names are company-specific**: discover with `acculynx settings milestones`; never guess.
-- **"Latest N jobs"** requires `--sort-order Descending` (API default is Ascending). `--search` mode ignores every other filter.
+- **"Latest N jobs"** requires `--sort-order Descending` (API default is Ascending). `--search-term` mode ignores every other filter.
 - **pageSize max is 25.** Truncated output means narrow the query, not end of data.
 - **Not supported by the API** (say so; don't improvise): changing job milestones/statuses, deleting jobs/contacts, reading message threads (posting/replying only).
 

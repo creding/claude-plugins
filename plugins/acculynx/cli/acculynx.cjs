@@ -111431,7 +111431,7 @@ function runDescribe(group, verb) {
     description: entry.config.description,
     mutates: Boolean(entry.config.approval),
     positional: entry.positional ?? null,
-    flags: shape.flags.map((f) => ({
+    flags: shape.flags.filter((f) => f.key !== entry.positional).map((f) => ({
       flag: `--${f.flag}`,
       type: f.type,
       required: f.required,
@@ -111474,7 +111474,7 @@ Discovery-first workflow: \`acculynx --help\` (groups) \u2192 \`acculynx <group>
 - **Contact**: the customer/owner. Every Job references exactly one Contact at creation.
 
 ## Creating a job (multi-step, always in this order)
-1. Find the contact: \`acculynx contacts list --search "<name>"\`. If a match exists, ASK THE USER
+1. Find the contact: \`acculynx contacts list --search-term "<name>"\`. If a match exists, ASK THE USER
    whether to reuse it before creating a duplicate. Else \`acculynx contacts create\`
    (contactTypeIds are UUIDs from \`acculynx contacts types\`; jobCategory/workType ids are numeric).
 2. Discover reference ids as needed: \`acculynx settings lead-sources|job-categories|work-types|trade-types\`,
@@ -111484,8 +111484,8 @@ Discovery-first workflow: \`acculynx --help\` (groups) \u2192 \`acculynx <group>
    require the Approved milestone. Inspect assignmentErrors in the result before claiming success.
 
 ## Searching jobs \u2014 two mutually exclusive modes
-- \`--search "<term>"\`: global search by street/customer/job-number. ALL other filters are ignored.
-- No \`--search\`: filtered listing. sortOrder defaults to Ascending, so "latest N" needs
+- \`--search-term "<term>"\`: global search by street/customer/job-number. ALL other filters are ignored.
+- No \`--search-term\`: filtered listing. sortOrder defaults to Ascending, so "latest N" needs
   \`--sort-by CreatedDate --sort-order Descending --page-size N\`. Milestone names must come from
   \`acculynx settings milestones\` (never guess). Date windows: --start-date/--end-date + --date-filter-type.
 - Jobs assigned to a user: \`acculynx jobs list-by-user\` (bounded scan; report truncatedScan: true honestly).
@@ -111535,7 +111535,8 @@ function label(e) {
   return e.config.approval ? "[mutates]" : "[read]";
 }
 function firstSentence(s) {
-  return s.split(/(?<=\.)\s/)[0];
+  const m = s.match(/^.*?(?<!\be\.g)(?<!\bi\.e)\.(?=\s)/);
+  return m ? m[0] : s;
 }
 function printRootHelp() {
   const lines = [

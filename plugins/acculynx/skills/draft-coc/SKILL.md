@@ -12,7 +12,7 @@ The PDF generation step is **rendering only** (no external side effects), so gen
 
 ## Dependencies
 This skill leverages the following CLI commands (schemas: `acculynx describe <group> <command>`):
-* `acculynx jobs get` / `acculynx jobs list --search` — job details, including claim numbers and dates.
+* `acculynx jobs get` / `acculynx jobs list --search-term` — job details, including claim numbers and dates.
 * `acculynx jobs contacts` — the customer / owner associated with the job.
 * `acculynx financials for-job` — worksheet totals and financial overview.
 * `acculynx settings company` — company license and contact details.
@@ -23,7 +23,7 @@ This skill leverages the following CLI commands (schemas: `acculynx describe <gr
 ## Workflow
 
 ### Step 1: Gather Job and Contact Information
-* If a customer name is given (e.g. "Cory Brown"), search with `acculynx jobs list --search "<name>"` or `acculynx contacts list --search "<name>"`.
+* If a customer name is given (e.g. "Cory Brown"), search with `acculynx jobs list --search-term "<name>"` or `acculynx contacts list --search-term "<name>"`.
 * Fetch full job details with `acculynx jobs get <jobId>`: note the `id` (jobId), property address, and insurance `claimNumber`.
 * Fetch `acculynx jobs contacts <jobId>` for the customer's full name.
 
