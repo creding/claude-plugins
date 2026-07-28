@@ -13,7 +13,7 @@ node "${CLAUDE_PLUGIN_ROOT}/cli/acculynx.cjs" <group> <command> [args]
 
 Define a shorthand once per session: `ALX='node ${CLAUDE_PLUGIN_ROOT}/cli/acculynx.cjs'` and invoke as `$ALX ...` — every example below uses `acculynx` to mean this.
 
-Requires `ACCULYNX_API_KEY` in the environment (or `~/.config/acculynx/config.json` with `{"apiKey": "..."}`). If it's missing, ask the user to set it — never ask them to paste the key into chat.
+Auth resolves from, in order: `ACCULYNX_API_KEY` env var → `~/.config/acculynx/config.json` (`{"apiKey": "..."}`) — and the plugin's own settings screen feeds that config file automatically via a SessionStart hook. If the key is missing, tell the user to enter it in the acculynx plugin's settings (or set the env var / config file) — never ask them to paste the key into chat.
 
 ## Discovery-first — do not guess flags
 

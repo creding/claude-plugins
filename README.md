@@ -17,9 +17,12 @@ media, users, and company settings — plus three skills:
 - **draft-coc** — Certificate of Completion PDFs: generate → review → upload.
 - **generate-roof-report** — branded roof inspection report PDFs, brief or detailed.
 
-Setup: export `ACCULYNX_API_KEY` (and optionally `ACCULYNX_SIGNER_EMAIL` for PDF
-signatures) in your shell profile, or put them in `~/.config/acculynx/config.json` as
-`{"apiKey": "...", "signerEmail": "..."}`. Requires Node 22+.
+Setup: enter your API key (and optional signer email for PDF signatures) in the plugin's
+configuration screen when installing — the key lands in secure storage and a SessionStart
+hook makes it available to the CLI in every session, including Cowork sandboxes.
+Alternatives: export `ACCULYNX_API_KEY` / `ACCULYNX_SIGNER_EMAIL`, or write
+`~/.config/acculynx/config.json` as `{"apiKey": "...", "signerEmail": "..."}`.
+Requires Node 22+.
 
 The CLI is developed in [`acculynx-cli`](https://github.com/creding/acculynx-cli) and the
 built bundle is synced into `plugins/acculynx/cli/` by that repo's `scripts/sync-plugin.sh`.
