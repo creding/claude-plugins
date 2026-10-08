@@ -1,0 +1,7 @@
+{
+  "name": "motion-studio",
+  "description": "Produce finished motion-graphics videos (explainers and social ads): story, storyboard, deterministic canvas scene, motion-blurred render, scored sound with ElevenLabs, captions, verification and delivery.",
+  "version": "0.1.0",
+  "author": { "name": "Christopher Reding" },
+  "keywords": ["motion-design", "video", "animation", "explainer", "social-video", "elevenlabs", "ffmpeg", "playwright"]
+}

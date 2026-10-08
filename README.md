@@ -10,6 +10,24 @@ Generate images from a text prompt using Google's Gemini image models ("Nano Ban
 callable from **any** repository. Zero runtime dependencies — a single Node script using
 built-in `fetch` (Node 18+).
 
+### motion-studio
+
+Produce finished motion-graphics videos (explainers and social ads) from code: story method, a
+deterministic canvas scene template, a parallel motion-blurred renderer, an automatic platform
+safe-zone check, ElevenLabs score / sound effects / narration with transcript-verified takes,
+captions (.srt), loudness-normalised encodes and a verification checklist.
+
+```
+/plugin install motion-studio@creding-plugins
+```
+
+Per project: `npm i -D playwright && npx playwright install chromium`, plus ffmpeg and Python 3 (numpy).
+Optional ElevenLabs key: `ELEVENLABS_API_KEY=sk_...` in the environment, in a file named by
+`ELEVENLABS_ENV_FILE`, or in `~/.config/motion-studio/elevenlabs.key`.
+
+For claude.ai (chat, Cowork, mobile): zip `plugins/motion-studio/skills/motion-studio` and upload it
+under Settings → Capabilities → Skills. Rendering itself needs Claude Code.
+
 ## Install
 
 In a Claude Code CLI that supports `/plugin`:
