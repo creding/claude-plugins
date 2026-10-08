@@ -31,12 +31,15 @@ mkdirSync(path.join(out, 'stills'), { recursive: true });
 const url = pathToFileURL(scene).href + '?render=1' + (process.env.QUERY ? '&' + process.env.QUERY : '');
 
 const browser = await chromium.launch();
+let pagesOpened = 0;
 async function openPage() {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1920 }, deviceScaleFactor: 1 });
   page.on('pageerror', e => { console.error('[pageerror]', e.message); process.exitCode = 1; });
+  if (pagesOpened++ === 0) page.on('console', m => { if (['warning', 'error'].includes(m.type())) console.warn('[scene]', m.text()); });
   await page.addInitScript(TRACK_BOXES);
   await page.goto(url);
-  await page.evaluate(() => window.ready);
+  try { await page.evaluate(() => window.ready); }
+  catch (e) { console.error('scene failed to get ready:', e.message.split('\n')[0]); await browser.close(); process.exit(1); }
   const meta = await page.evaluate(() => { const c = document.querySelector('canvas'); return { W: window.W ?? c.width, H: window.H ?? c.height, FPS: window.FPS ?? 30, DUR: window.DUR }; });
   await page.setViewportSize({ width: meta.W, height: meta.H });
   return { page, canvas: await page.$('canvas'), meta };
@@ -99,10 +102,11 @@ if (mode === 'stills') {
   const p = await openPage(), sub = Number(a2 || 5);
   for (const t of a1.split(',').map(Number)) { const f = path.join(out, 'stills', fmt(t)); writeFileSync(f, await grab(p, t, sub, Math.round(t * p.meta.FPS))); console.log(f); }
 } else if (mode === 'determinism') {
-  const p = await openPage(), t = Number(a1 || 1), i = Math.round(t * p.meta.FPS);
-  const a = await grab(p, t, 5, i); await grab(p, t + 3, 5, i + 90); const b = await grab(p, t, 5, i);
-  if (Buffer.compare(a, b) === 0) console.log(`deterministic: frame at ${t}s identical across renders (${a.length} bytes)`);
-  else { console.error(`NOT deterministic at ${t}s: something reads wall-clock time, Math.random() or prior state`); process.exitCode = 1; }
+  // Same page re-render (catches carried state) AND a second fresh page (what parallel video workers do).
+  const p = await openPage(), q = await openPage(), t = Number(a1 || 1), i = Math.round(t * p.meta.FPS);
+  const a = await grab(p, t, 5, i); await grab(p, t + 3, 5, i + 90); const b = await grab(p, t, 5, i); const c = await grab(q, t, 5, i);
+  if (Buffer.compare(a, b) === 0 && Buffer.compare(a, c) === 0) console.log(`deterministic: frame at ${t}s identical across re-renders and pages (${a.length} bytes)`);
+  else { console.error(`NOT deterministic at ${t}s (${Buffer.compare(a, b) ? 'same page differs: carried state' : 'pages differ: load-order, font or async state'}); look for wall-clock time, Math.random(), state kept between frames, or assets still loading`); process.exitCode = 1; }
 } else if (mode === 'events') {
   const p = await openPage(); const ev = await p.page.evaluate(() => window.EVENTS || {});
   writeFileSync(path.join(out, 'events.json'), JSON.stringify(ev, null, 1)); console.log(path.join(out, 'events.json'));

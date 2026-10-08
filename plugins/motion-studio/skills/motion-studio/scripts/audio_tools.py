@@ -6,11 +6,13 @@ or use the CLI:
   python3 audio_tools.py transcribe clip.mp3         word timestamps (Scribe) + audio events
   python3 audio_tools.py check-take clip.mp3 "text"  exit 1 unless the clip says exactly "text" with no laughs/noises
   python3 audio_tools.py loudness video.mp4          integrated LUFS and true peak (ffmpeg ebur128)
+  python3 audio_tools.py balance mix.wav             share of energy below 150 Hz (phone speakers can't play it)
 
 Key: ELEVENLABS_API_KEY (must start with sk_; the 64-hex "key ID" is NOT the key), or a file named by
 ELEVENLABS_ENV_FILE containing ELEVENLABS_API_KEY=sk_..., or ~/.config/motion-studio/elevenlabs.key.
 Every generation is cached in $MOTION_AUDIO_CACHE (default ./audio_cache) keyed by its request, so re-mixing is free.
-Library functions needing numpy: decode, place, sidechain, master_wav."""
+Library functions needing numpy (no scipy): synth (osc, noise, env, lp, hp, bp, karplus) for the no-API path,
+and decode, place, sidechain, master_wav for mixing."""
 import hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request, uuid
 
 API = 'https://api.elevenlabs.io'
@@ -120,6 +122,27 @@ def anchor_offset(take, word, edge, target):
     return target - (w[1] if edge == 'start' else w[2])
 
 
+# ---------- synthesis (numpy only; for a procedural bed and cues when there's no API key) ----------
+def _t(sec): import numpy as np; return np.arange(int(sec * SR)) / SR
+def osc(freq, sec, shape='sine', detune=0.0):
+    import numpy as np; ph = (_t(sec) * freq * (1 + detune)) % 1
+    return {'sine': np.sin(2 * np.pi * ph), 'saw': 2 * ph - 1, 'square': np.sign(np.sin(2 * np.pi * ph)), 'tri': 2 * np.abs(2 * ph - 1) - 1}[shape]
+def noise(sec, seed=0): import numpy as np; return np.random.default_rng(seed).standard_normal(int(sec * SR))   # seeded: same mix every run
+def env(sec, attack=0.005, decay=None, hold=0.0):
+    import numpy as np; t = _t(sec); e = np.minimum(1, t / max(attack, 1e-4))
+    return e if decay is None else e * np.where(t < attack + hold, 1, np.exp(-(t - attack - hold) / decay))
+def _fft_filter(x, gain):
+    import numpy as np; X = np.fft.rfft(x); f = np.fft.rfftfreq(len(x), 1 / SR); return np.fft.irfft(X * gain(np.maximum(f, 1e-3)), len(x))
+def lp(x, fc, order=2): return _fft_filter(x, lambda f: 1 / (1 + (f / fc) ** (2 * order)) ** 0.5)
+def hp(x, fc, order=2): return _fft_filter(x, lambda f: 1 / (1 + (fc / f) ** (2 * order)) ** 0.5)
+def bp(x, lo, hi, order=2): return lp(hp(x, lo, order), hi, order)
+def karplus(freq, sec, bright=0.5, decay=0.996, seed=0):
+    """Plucked string (block-vectorised Karplus-Strong): far more natural than a decaying saw."""
+    import numpy as np; P = max(2, int(SR / freq)); n = int(sec * SR); y = np.zeros(n + P)
+    y[:P] = lp(np.random.default_rng(seed).uniform(-1, 1, P * 8), 2000 + 8000 * bright)[:P]
+    for i in range(P, n + P, P): prev = y[i - P:i]; blk = decay * 0.5 * (prev + np.roll(prev, -1)); m = min(P, n + P - i); y[i:i + m] = blk[:m]
+    return y[P:] * env(sec, 0.001, sec * 0.5)
+
 # ---------- mixing (numpy) ----------
 def decode(path):
     import numpy as np
@@ -142,13 +165,21 @@ def sidechain(voice_bus, depth=0.68, window=0.2):
     return 1 - depth * np.clip(e / (e.max() + 1e-9) * 4, 0, 1)
 
 
-def master_wav(mix, path, fade_out=0.3):
-    """Soft-clip, peak-normalise to -0.5 dBFS and write 16-bit 48 kHz. Final loudness is set at encode (loudnorm)."""
+def master_wav(mix, path, fade_out=0.3, highpass=40):
+    """High-pass (sub energy phones can't play only eats loudness), soft-clip, peak-normalise to -0.5 dBFS,
+    write 16-bit 48 kHz. Final loudness is set at encode (loudnorm)."""
     import numpy as np, wave
-    mix = mix.copy(); n = int(fade_out * SR); mix[-n:] *= np.linspace(1, 0, n)[:, None]
+    mix = np.stack([hp(mix[:, c], highpass, 3) for c in range(mix.shape[1])], 1) if highpass else mix.copy()
+    n = int(fade_out * SR); mix[-n:] *= np.linspace(1, 0, n)[:, None]
     mix = np.tanh(mix * 1.15) / np.tanh(1.15); mix /= np.abs(mix).max() / 0.95
     with wave.open(path, 'wb') as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((mix * 32767).astype('<i2').tobytes())
+
+
+def balance(path, split=150):
+    """Fraction of spectral energy below `split` Hz. Phone-first mixes read best around 0.3-0.5; above ~0.6 is bass-heavy."""
+    import numpy as np; x = decode(path).mean(1); P = np.abs(np.fft.rfft(x)) ** 2; f = np.fft.rfftfreq(len(x), 1 / SR)
+    return float(P[f < split].sum() / P.sum())
 
 
 def loudness(path):
@@ -171,7 +202,9 @@ def _cli():
     elif a[0] == 'check-take':
         ok, heard, ev = check_take(a[1], a[2]); print('OK' if ok else f'MISMATCH: heard {heard!r} {ev or ""}'); sys.exit(0 if ok else 1)
     elif a[0] == 'loudness':
-        i, tp = loudness(a[1]); print(f'integrated {i} LUFS, true peak {tp} dBFS')
+        i, tp = loudness(a[1]); print(f'integrated {i} LUFS, true peak {tp} dBTP')
+    elif a[0] == 'balance':
+        b = balance(a[1]); print(f'{b:.0%} of energy below 150 Hz' + ('  (bass-heavy for phone speakers)' if b > 0.6 else ''))
     else: print(__doc__)
 
 

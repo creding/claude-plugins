@@ -17,7 +17,7 @@
     {
       "name": "motion-studio",
       "description": "Produce finished motion-graphics videos (explainers and social ads) end to end: story, deterministic canvas scene, motion-blurred render, ElevenLabs sound, captions, verification and delivery.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": "./plugins/motion-studio",
       "author": {
         "name": "Christopher Reding"

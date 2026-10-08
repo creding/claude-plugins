@@ -11,15 +11,17 @@ out/captions.srt             node render.mjs captions
 out/contact.png              one frame every 2 s
 cover.jpg                    the strongest hook frame (usually inside the first 1-2 s)
 post-copy.md                 per-platform title / description / caption
-README.md                    lists ONLY the checks that were actually run, with their results
+SPECS.md                     the scene specs (the design review and future re-cuts need them)
+README.md                    lists ONLY the checks that were actually run, with their results, and the motion-studio version used
 DECISIONS.md                 one line per creative call
 SOURCES.md                   every number and claim, with its source
 src/                         the scene; re-rendering must reproduce the master
+tools/                       copies of render.mjs, finish.sh, audio_tools.py, beats.py, contrast.py from the skill version used
 ```
 
 ## Encode
 
-`scripts/finish.sh <video-silent.mp4> <soundtrack.wav> <out> <name> [MB]` does master + 2-pass + silent + contact sheet + phone check + loudness report. H.264 high, yuv420p, 30 fps, AAC 48 kHz, `+faststart`.
+`scripts/finish.sh <video-silent.mp4> <soundtrack.wav> <out> <name> [MB]` does master + 2-pass + silent + contact sheet + phone check + loudness report. H.264 high, yuv420p, 30 fps, AAC 48 kHz, `+faststart`. Size scales with length: ~0.5 MB per second (a 30 s vertical lands near 15 MB, an 8 s clip near 4 MB) and the video bitrate is capped at 4.5 Mbps.
 
 Re-render only what changed: `FROM_FRAME=<n>` keeps earlier frames (e.g. a phone-number change on the end card re-renders seconds, not minutes).
 

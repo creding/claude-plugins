@@ -13,9 +13,10 @@ const ctx = canvas.getContext('2d');
 
 // ---------- tokens (pull these from the brand before drawing anything) ----------
 const TOK = {
-  ground: '#F4F1EA', ink: '#1B1E26', accent: '#C2412D', muted: '#8A8F98',
+  ground: '#F4F1EA', ink: '#1B1E26', accent: '#C2412D', muted: '#8A8F98',   // muted = lines only (2.9:1 on ground; text needs 4.5:1)
   display: '"Helvetica Neue", Helvetica, Arial', text: '"Helvetica Neue", Helvetica, Arial',
   grid: Math.round(Math.min(W, H) / 24),            // spacing unit; positions snap to multiples of it
+  fonts: [['Helvetica Neue', [400, 600, 700]]],      // families the film needs; rendering refuses to start if one is missing
 };
 
 // ---------- timeline: the single source of truth ----------
@@ -25,11 +26,13 @@ const TIMELINE = {
   beats: [
     { id: 'question', t0: 0.0, t1: 3.0, teaches: 'the thing people get wrong', words: ['One dot.', 'Why does it matter?'], cue: { name: 'pop', at: 0.35 } },
     { id: 'model',    t0: 3.0, t1: 6.0, teaches: 'the dot becomes a measured bar', words: ['It grows with every week.'], cue: { name: 'rise', at: 3.4 } },
-    { id: 'payoff',   t0: 6.0, t1: 9.0, teaches: 'the opening image, read correctly', words: ['Same dot. Now you can read it.'], cue: { name: 'resolve', at: 6.5 } },
+    { id: 'payoff',   t0: 6.0, t1: 9.0, teaches: 'the opening image, read correctly', words: ['Same dot.', 'Now you can read it.'], cue: { name: 'resolve', at: 6.5 } },
   ],
 };
 TIMELINE.beats.forEach(b => b.words.forEach(l => { if (l.split(/\s+/).length > 8) console.warn(`caption over 8 words in "${b.id}": ${l}`); }));
 if (TIMELINE.beats.some(b => b.words.length > 2)) console.warn('a beat has more than two caption lines');
+TIMELINE.beats.forEach(b => { const n = b.words.join(' ').split(/\s+/).length, need = 0.3 * n + 0.5;           // read time
+  if (b.t1 - b.t0 < need) console.warn(`"${b.id}" is on screen ${(b.t1 - b.t0).toFixed(2)}s; ${n} words need ${need.toFixed(2)}s`); });
 const CUTS = [0, TIMELINE.dur];                       // add hard-cut times here; motion blur never blends across them
 
 // ---------- math ----------
@@ -58,8 +61,8 @@ function stateAt(t) {
   return {
     t,
     // ONE object across all beats: a dot that becomes a bar, then is read with a label.
-    dotX: W / 2, dotY: H * 0.55,
-    barH: track(t, [[0, 0], [m.t0 + 0.2, H * 0.18], [m.t0 + 1.4, H * 0.28]], 170, 26),  // two target changes, one continuous motion
+    dotX: W / 2, dotY: H * 0.68,                                                     // below the caption block, above the bottom UI zone
+    barH: track(t, [[0, 0], [m.t0 + 0.2, H * 0.14], [m.t0 + 1.4, H * 0.22]], 170, 26),  // two target changes, one continuous motion
     barW: lerp(TOK.grid * 1.2, TOK.grid * 3, clamp(grow)),
     label: settle(seg(t, p.t0 + 0.3, p.t0 + 0.9)),
     cam: { z: lerp(1.15, 1, inOut(seg(t, 0, 1.2))) * lerp(1, 1.06, inOut(seg(t, p.t0, p.t1))) },
@@ -71,7 +74,7 @@ function drawScene(t) {
   const s = stateAt(t);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = TOK.ground; ctx.fillRect(0, 0, W, H);
-  ctx.translate(W / 2, H / 2); ctx.scale(s.cam.z, s.cam.z); ctx.translate(-W / 2, -H / 2);
+  applyCamera(s);
   // baseline axis appears with the model beat
   const ax = settle(seg(t, 3.0, 3.6));
   ctx.strokeStyle = TOK.muted; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(W / 2 - 300 * ax, s.dotY + 2); ctx.lineTo(W / 2 + 300 * ax, s.dotY + 2); ctx.stroke();
@@ -79,6 +82,12 @@ function drawScene(t) {
   ctx.fillStyle = TOK.accent;
   const r = Math.min(s.barW / 2, TOK.grid);
   roundRect(s.dotX - s.barW / 2, s.dotY - Math.max(s.barW, s.barH), s.barW, Math.max(s.barW, s.barH), r); ctx.fill();
+}
+function applyCamera(s) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.translate(W / 2, H / 2); ctx.scale(s.cam.z, s.cam.z); ctx.translate(-W / 2, -H / 2); }
+// Overlay pass: labels, numbers, HUD. Drawn once per frame after the motion-blurred scene so text stays sharp,
+// in the same camera space as the scene so labels stay attached to what they name.
+function drawOverlay(t) {
+  const s = stateAt(t); applyCamera(s);
   if (s.label > 0) { ctx.globalAlpha = s.label; ctx.fillStyle = TOK.ink; ctx.font = `600 ${TOK.grid * 1.4}px ${TOK.text}`; ctx.textAlign = 'left';
     ctx.fillText('60 days', s.dotX + s.barW / 2 + TOK.grid, s.dotY - s.barH + TOK.grid); ctx.globalAlpha = 1; }
 }
@@ -87,15 +96,22 @@ function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.a
 // Captions: max two lines, one beat at a time, inside the platform safe zone. Drawn once per frame (never motion-blurred).
 function drawCaptions(t) {
   const b = TIMELINE.beats.find(x => t >= x.t0 && t < x.t1); if (!b) return;
-  const a = clamp((t - b.t0) / 0.25) * (1 - clamp((t - (b.t1 - 0.2)) / 0.2));
-  const size = Math.round(TOK.grid * (W < H ? 2.6 : 2.0));
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = a; ctx.textAlign = 'center'; ctx.fillStyle = TOK.ink; ctx.font = `700 ${size}px ${TOK.display}`;
-  const SZ = safeArea(), maxW = SZ.x1 - SZ.x0 - 2 * TOK.grid;                  // captions live inside the safe area
-  const fit = Math.min(1, ...b.words.slice(0, 2).map(l => maxW / ctx.measureText(l).width));
+  const fadeIn = b.t0 <= 0 ? 1 : clamp((t - b.t0) / 0.25);                      // the hook is readable on frame 1
+  const a = fadeIn * (1 - clamp((t - (b.t1 - 0.2)) / 0.2));
+  const size = captionSize(), fit = captionFit(b), SZ = safeArea();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = a; ctx.textAlign = 'center'; ctx.fillStyle = TOK.ink;
   ctx.font = `700 ${Math.floor(size * fit)}px ${TOK.display}`;
   const top = SZ.y0 + TOK.grid + size * fit * 0.8;                              // first baseline: cap height below the top bar
   b.words.slice(0, 2).forEach((line, i) => ctx.fillText(line, (SZ.x0 + SZ.x1) / 2, top + i * size * fit * 1.2 + (1 - settle(a)) * 16));
   ctx.globalAlpha = 1;
+}
+const captionSize = () => Math.round(TOK.grid * (W < H ? 2.0 : 1.8));
+const MIN_CAPTION_PX = Math.round(0.055 * Math.min(W, H));   // ~59 px at 1080: still legible on a phone in a feed
+// Both lines share one size (captions live inside the safe area); a long line shrinks both, so loadFonts warns if that
+// drops below MIN_CAPTION_PX: split the line or shorten the copy.
+function captionFit(b) {
+  const maxW = safeArea().x1 - safeArea().x0 - 2 * TOK.grid; ctx.font = `700 ${captionSize()}px ${TOK.display}`;
+  return Math.min(1, ...b.words.slice(0, 2).map(l => maxW / ctx.measureText(l).width));
 }
 // Platform UI covers the edges of vertical video. Same numbers as `render.mjs safezones` (conservative TikTok/Reels/Shorts union):
 // top 15%, bottom 25%, sides 10%. 16:9 and 1:1 use a 5% title-safe margin. Override both by setting window.SAFE_ZONES.
@@ -114,6 +130,7 @@ function renderFrame(t, sub = 1, frameIdx = Math.round(t * FPS)) {
     for (let k = 0; k < sub; k++) { drawScene(clamp(t + ((k + 0.5) / sub - 0.5) * shutter, a, b - 1e-4)); actx.globalAlpha = 1 / (k + 1); actx.drawImage(canvas, 0, 0); }
     actx.globalAlpha = 1; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(acc, 0, 0);
   } else drawScene(t);
+  drawOverlay(t);
   drawCaptions(t);
   if (Q.get('guides') === '1' || window.__guides) drawGuides();
 }
@@ -122,7 +139,20 @@ function renderFrame(t, sub = 1, frameIdx = Math.round(t * FPS)) {
 Object.assign(window, { W, H, FPS, DUR: TIMELINE.dur, renderFrame,
   EVENTS: Object.fromEntries(TIMELINE.beats.map(b => [b.cue.name, b.cue.at])),
   CAPTIONS: TIMELINE.beats.map(b => ({ t0: b.t0, t1: b.t1, text: b.words.join('\n') })),
-  ready: document.fonts.ready });
+  ready: loadFonts() });
+
+// A font that silently falls back renders the first frames wrong. Load every face, then prove each family is
+// really in use by measuring it against generic fallbacks; reject (and fail the render) if one is missing.
+async function loadFonts() {
+  await Promise.all(TOK.fonts.flatMap(([fam, ws]) => ws.map(w => document.fonts.load(`${w} 100px "${fam}"`))));
+  await document.fonts.ready;
+  const m = document.createElement('canvas').getContext('2d'), probe = 'mmmmwwwwlliiQQ@#2026';
+  const width = f => { m.font = f; return m.measureText(probe).width; };
+  const missing = TOK.fonts.filter(([fam]) => ['monospace', 'serif'].every(g => width(`100px "${fam}", ${g}`) === width(`100px ${g}`))).map(([f]) => f);
+  if (missing.length) throw new Error('fonts not available: ' + missing.join(', '));
+  TIMELINE.beats.forEach(b => { const px = Math.floor(captionSize() * captionFit(b));
+    if (px < MIN_CAPTION_PX) console.warn(`"${b.id}" caption shrinks to ${px}px (min ${MIN_CAPTION_PX}): split the line or shorten the copy`); });
+}
 
 // ---------- preview (open index.html directly) ----------
 if (Q.get('render') !== '1') {

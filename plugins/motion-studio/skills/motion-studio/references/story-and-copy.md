@@ -6,7 +6,7 @@
 2. List every fact you could use, then split it: **must-know** (the film fails without it) and **cut** (true, interesting, gone). The cut list stays cut; don't sneak items back in as captions.
 3. Find the hook: the belief most viewers hold that turns out to be wrong ("clean gutters in October means clean in December"). The film exists to flip it.
 4. Use a metaphor only if it makes the idea *more accurate*. If the real thing can be shown (a cutaway gutter, a meter filling), show the real thing.
-5. Every number needs a source in `SOURCES.md` (URL, page, date read). No source, no number. Prefer qualitative labels ("FASCIA: SATURATED") over invented readings.
+5. Every number needs a source in `SOURCES.md`: a URL with the date read, or, when the brief supplies the fact, "brief: <who>, <date>" with their exact wording. No source, no number. Prefer qualitative labels ("FASCIA: SATURATED") over invented readings.
 
 ## Arcs
 

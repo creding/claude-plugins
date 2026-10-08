@@ -7,7 +7,7 @@ description: Use when making a motion-graphics or animated video, explainer, soc
 
 The deliverable is a **finished, rendered video with sound and captions**, plus the source that re-renders it exactly. A plan, moodboard or still frame is not the deliverable.
 
-You play the whole studio: creative director, writer, motion designer, sound designer, render engineer. When the brief is thin, make the call, log it in one line in `DECISIONS.md`, and keep moving. Stop only for missing rights or assets, unsafe content, an ambiguity that changes the goal, or anything that publishes or touches an account.
+You play the whole studio: creative director, writer, motion designer, sound designer, render engineer. When the brief is thin, make the call, log it in one line in `DECISIONS.md`, and keep moving. If the brief doesn't name the client, infer it from the workspace (brand skills, folder, prior videos), say which you assumed, and log it. Stop only for missing rights or assets, unsafe content, an ambiguity that changes the goal, or anything that publishes or touches an account.
 
 ## Where it runs
 
@@ -25,7 +25,7 @@ Run new films at high reasoning effort (xhigh/max); medium is fine for fixes and
 3. **Directions** (new brand or format only): 3-4 directions side by side in one `directions.html`; mark the winner and why in `DECISIONS.md`. Skip on re-cuts.
 4. **Timing mode.** Picture-led (`events.json`) or music-led (`scripts/beats.py` → `beats.json`). `references/sound.md`.
 5. **Scene specs.** One per scene (template in story-and-copy.md): time range, what it teaches, frame, motion, words, sound cue, check. Something new every 2-4 s.
-6. **Build** from `scripts/template/` (copy to `src/`): tokens first, springs (`spring`, `track`) for anything that moves.
+6. **Build** from `scripts/template/` (copy to `src/`), and copy `scripts/*` to `tools/` so the project re-renders without this skill; note the plugin version in `README.md`. Tokens first, springs (`spring`, `track`) for anything that moves, labels in the sharp overlay pass.
 7. **Stills + critique loop** before the full render: `references/critique.md`, every score 8+. `safezones` and `determinism` must pass.
 8. **Full render:** `render.mjs video [workers] 5` (5 motion-blur sub-frames). Frames go to a scratch dir (`FRAMES_DIR`), never a cloud-synced folder.
 9. **Sound** with `scripts/audio_tools.py`; **captions** with `render.mjs captions`.
@@ -42,12 +42,13 @@ Run new films at high reasoning effort (xhigh/max); medium is fine for fixes and
 
 | Gate | Command |
 |---|---|
-| Deterministic | `node scripts/render.mjs determinism <t>` at 2-3 times, one mid-animation |
+| Deterministic | `node scripts/render.mjs determinism <t>` at 2-3 times, one mid-animation (checks re-renders and two fresh pages) |
+| Contrast | `python3 scripts/contrast.py` on every caption and label → ≥ 4.5:1 |
 | Safe zones | `node scripts/render.mjs safezones` → 0 FAIL in every delivered format |
 | Critique | `review/review_log.md` shows every score 8+ (`references/critique.md`) |
 | Phone legible | `phone_check.png` from `finish.sh` (390 px wide) |
 | Voice | every take passes `audio_tools.good_take`; final mix transcribed word for word |
-| Loudness | `python3 scripts/audio_tools.py loudness <final.mp4>` → -14 LUFS social (-16 explainer), TP ≤ -1 |
+| Loudness | `python3 scripts/audio_tools.py loudness <final.mp4>` → -14 LUFS social (-16 explainer), TP ≤ -1 dBTP; `balance` not bass-heavy |
 | Facts & brand | every claim in `SOURCES.md`; logos are vector, on their required background, never cropped |
 
 `render.mjs safezones` records every text and image drawn on the visible canvas and fails if any sits in platform UI for 0.3 s or more (vertical: top 15%, bottom 25%, sides 10%; 16:9 and 1:1: 5% title-safe). It works on any canvas scene, template or not.
@@ -56,6 +57,9 @@ Run new films at high reasoning effort (xhigh/max); medium is fine for fixes and
 
 | Mistake | Fix |
 |---|---|
+| Fonts load late, first frames render in a fallback face | Template `loadFonts()` proves every family before rendering |
+| First caption fades in from nothing, frame 1 is blank | Beats starting at 0 are fully visible on frame 1 |
+| Diagram label in a muted grey fails contrast | `contrast.py` on labels, not just captions |
 | Text sized to the frame width (fit to 940 px) runs into the like/share rail | Fit text to the safe area (`safeArea()` in the template); run `safezones` |
 | Safe zones "checked" by eye | `safezones` gate; eyes miss the rail on every frame |
 | Trusting a TTS take | Transcribe it; one take had a stray laugh. `good_take` rejects and regenerates |
